@@ -4,7 +4,7 @@ Production-proven strangler fig migration framework with shadow testing and zero
 
 ## Results
 
-**Prologis & Bupa UK Production Metrics:**
+**Production Metrics:**
 - **P95 Latency**: 4.2s → 0.9s (79% reduction)
 - **Deployment Time**: 45m → 6m (87% reduction)  
 - **Error Rate**: 1.8% → 0.12% (93% reduction)
