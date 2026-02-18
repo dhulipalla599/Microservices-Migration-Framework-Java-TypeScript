@@ -1,0 +1,41 @@
+{
+  "name": "microservices-migration",
+  "version": "1.0.0",
+  "description": "Strangler fig migration framework for legacy monolith modernization",
+  "private": true,
+  "workspaces": [
+    "legacy-monolith",
+    "strangler-architecture/proxy",
+    "strangler-architecture/auth-service",
+    "strangler-architecture/document-service",
+    "strangler-architecture/pricing-service"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm install --workspaces",
+    "dev:legacy": "npm run dev -w legacy-monolith",
+    "dev:new": "npm run dev:proxy & npm run dev:services",
+    "dev:proxy": "npm run dev -w strangler-architecture/proxy",
+    "dev:services": "concurrently \"npm run dev -w strangler-architecture/auth-service\" \"npm run dev -w strangler-architecture/document-service\" \"npm run dev -w strangler-architecture/pricing-service\"",
+    "build": "npm run build --workspaces",
+    "test": "npm test --workspaces",
+    "test:shadow": "npm run test:shadow -w strangler-architecture/proxy",
+    "db:migrate": "cd database-migration && npx flyway migrate",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "microservices",
+    "migration",
+    "strangler-fig",
+    "modernization",
+    "refactoring",
+    "kafka",
+    "spring-boot"
+  ],
+  "author": "D.V. Sandeep <dvsandeep599@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

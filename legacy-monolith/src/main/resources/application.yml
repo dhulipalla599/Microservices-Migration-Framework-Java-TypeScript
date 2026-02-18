@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: legacy-monolith
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/migration_db}
+    username: ${SPRING_DATASOURCE_USERNAME:migration_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:migration_password}
+
+server:
+  port: 8080

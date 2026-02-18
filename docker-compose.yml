@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Shared database (during migration)
+  postgres:
+    image: postgres:16-alpine
+    container_name: migration-postgres
+    environment:
+      POSTGRES_DB: migration_db
+      POSTGRES_USER: migration_user
+      POSTGRES_PASSWORD: migration_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database-migration/flyway/sql:/docker-entrypoint-initdb.d
+    networks:
+      - migration-network
+
+  # Redis - Caching layer
+  redis:
+    image: redis:7-alpine
+    container_name: migration-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - migration-network
+
+  # Kafka + Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: migration-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - migration-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: migration-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - migration-network
+
+  # Legacy Monolith (Spring Boot)
+  legacy-monolith:
+    build:
+      context: ./legacy-monolith
+      dockerfile: Dockerfile
+    container_name: legacy-monolith
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/migration_db
+      SPRING_DATASOURCE_USERNAME: migration_user
+      SPRING_DATASOURCE_PASSWORD: migration_password
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - migration-network
+
+  # New Microservices
+  auth-service:
+    build:
+      context: ./strangler-architecture/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/migration_db
+      SPRING_DATASOURCE_USERNAME: migration_user
+      SPRING_DATASOURCE_PASSWORD: migration_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8082:8080"
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - migration-network
+
+  document-service:
+    build:
+      context: ./strangler-architecture/document-service
+      dockerfile: Dockerfile
+    container_name: document-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/migration_db
+      SPRING_DATASOURCE_USERNAME: migration_user
+      SPRING_DATASOURCE_PASSWORD: migration_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8083:8080"
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - migration-network
+
+  pricing-service:
+    build:
+      context: ./strangler-architecture/pricing-service
+      dockerfile: Dockerfile
+    container_name: pricing-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/migration_db
+      SPRING_DATASOURCE_USERNAME: migration_user
+      SPRING_DATASOURCE_PASSWORD: migration_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8084:8080"
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - migration-network
+
+  # NGINX Strangler Proxy
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./strangler-architecture/proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - legacy-monolith
+      - auth-service
+      - document-service
+      - pricing-service
+    networks:
+      - migration-network
+
+volumes:
+  postgres-data:
+
+networks:
+  migration-network:
+    driver: bridge
