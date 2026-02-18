@@ -302,12 +302,11 @@ location ~ ^/api/documents/(.*)$ {
 
 ## Related Article
 
-📄 [Migrating Legacy Microservices to Modern Java and TypeScript: A Practical Field Guide](./docs/ARTICLE.md)
+
 
 ## Author
 
 **D.V. Sandeep**  
-Lead Software Engineer  
 [LinkedIn](https://linkedin.com/in/dhullipalla-sandeep) | [Email](mailto:dvsandeep599@gmail.com)
 
 ## License
